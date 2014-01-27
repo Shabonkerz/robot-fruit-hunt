@@ -37,6 +37,7 @@ var SuperBot = function ( )
 {
 
 	this.strategy = this.strategies.OFFENSIVE;
+
 }
 
 SuperBot.prototype = {
@@ -85,13 +86,50 @@ var Fruit = function ( x, y, type, id )
 	this.type = type;
 	this.id = id;
 }
-var PathNode = function ( fruit, fruits, level )
+var PathNode = function ( fruit, fruits, level, counts )
 {
-	if ( level === null || level === undefined ) level = 1;
+	if ( level === undefined || level === null ) level = 1;
+
+	if ( counts === undefined || counts === null )
+	{
+		this.counts = [ ];
+		for ( var i = 0; i < get_number_of_item_types( ); i++ )
+		{
+			this.counts.push( get_total_item_count( i + 1 ) );
+		};
+	}
+	else
+	{
+		this.counts = counts.slice( 0 );
+	}
+
 	this.fruit = fruit;
-	this.insert( fruits, level + 1 );
+	if ( fruit !== null )
+	{
+		this.counts[ fruit.type - 1 ]--;
+
+		// If we reach part of the winning condition, check the others.
+		if ( this.counts[ fruit.type - 1 ] < ( get_total_item_count( fruit.type ) / 2 ) && this.isWinningPath( ) )
+		{
+			//console.log( 'Found winning path!' );
+			return;
+		}
+	}
+	this.insert( fruits, level + 1, counts );
 }
 PathNode.prototype = {
+	isWinningPath: function ( )
+	{
+		var winningFruits = [ ];
+
+		for ( var i = 1; i < get_number_of_item_types( ) + 1; i++ )
+		{
+			if ( this.counts[ i - 1 ] < ( get_total_item_count( i ) / 2 ) ) winningFruits.push( 1 );
+		};
+
+		// Is this path a winning one????
+		return winningFruits.length >= get_number_of_item_types( ) / 2;
+	},
 	insert: function ( fruits, level )
 	{
 		if ( fruits === null || fruits.length === 0 ) return;
@@ -101,7 +139,7 @@ PathNode.prototype = {
 			var remaining = fruits.slice( 0 );
 			remaining.splice( i, 1 );
 			//console.log( ( "" + stringFill( "\t", level ) ) + fruits[ i ].id.toString( ) );
-			this[ i ] = new PathNode( fruits[ i ], remaining, level );
+			this[ i ] = new PathNode( fruits[ i ], remaining, level, this.counts );
 		};
 	},
 	getShortestWinnablePath: function ( fruits ) {
