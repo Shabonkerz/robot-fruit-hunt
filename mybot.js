@@ -120,15 +120,15 @@ var PathNode = function ( fruit, fruits, level, counts )
 PathNode.prototype = {
 	isWinningPath: function ( )
 	{
-		var winningFruits = [ ];
+		var winningFruits = 0;
 
 		for ( var i = 1; i < get_number_of_item_types( ) + 1; i++ )
 		{
-			if ( this.counts[ i - 1 ] < ( get_total_item_count( i ) / 2 ) ) winningFruits.push( 1 );
+			if ( this.counts[ i - 1 ] < ( get_total_item_count( i ) / 2 ) ) winningFruits++;
 		};
 
 		// Is this path a winning one????
-		return winningFruits.length >= get_number_of_item_types( ) / 2;
+		return winningFruits >= get_number_of_item_types( ) / 2;
 	},
 	insert: function ( fruits, level )
 	{
