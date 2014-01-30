@@ -104,7 +104,7 @@ SuperBot.prototype = {
 		{
 			for ( var y = 0; y < board[ x ].length; y++ )
 			{
-				if ( board[ x ][ y ] > 0 ) fruits.push( new Fruit( x, y, board[ x ][ y ], count++ ) );
+				if ( board[ x ][ y ] > 0 ) fruits[ fruits.length ] = new Fruit( x, y, board[ x ][ y ], count++ );
 			};
 		};
 		return fruits;
@@ -138,7 +138,7 @@ var PathNode = function ( parent, fruit, fruits )
 		for ( var i = 0; i < get_number_of_item_types(); i++ )
 		{
 			// this.counts.push( get_total_item_count( i + 1 ) );
-			this.counts.push( 0 );
+			this.counts[ this.counts.length ] = 0;
 		};
 	}
 	else
@@ -155,6 +155,7 @@ var PathNode = function ( parent, fruit, fruits )
 
 		this.counts[ this.fruit.type - 1 ]++;
 
+		// Since you should, at the very least, be able to get half of the fruit + 1 fruit to win, you can ignore any paths that exceed that number.
 		if ( this.exceedsLimit() === true ) return;
 
 		// If we reach part of the winning condition, check the others.
@@ -250,12 +251,13 @@ PathNode.prototype = {
 
 		for ( var i = 0; i < fruits.length; i++ )
 		{
-			var remaining = fruits.slice( 0 );
-			remaining.splice( i, 1 );
+			var current = fruits.shift();
+			// remaining.splice( i, 1 );
 			// for (var i = 0; i < remaining.length; i++) {
 			//    if( this.distance + remaining[i]
 			// };
-			this.children.push( new PathNode( this, fruits[ i ], remaining ) );
+			this.children[ this.children.length ] = new PathNode( this, current, fruits );
+			fruits[ fruits.length ] = current;
 		};
 	},
 	getShortestWinnablePath: function ()
