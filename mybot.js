@@ -3,26 +3,11 @@ function new_game()
 
 function make_move()
 {
-	console.log( "Making move!" );
-	var move = bot.moveTo( bot.buildPathTree()[ 1 ].fruit )
-	console.log( move );
+	var start = new Date();
+	var move = bot.moveTo( bot.buildPathTree()[ 1 ].fruit );
+	var end = new Date();
+	console.log( "Moving to " + move + ". Building the path tree took: " + ( end.valueOf() - start.valueOf() ) + "ms" );
 	return move;
-	// var board = get_board();
-
-	// // we found an item! take it!
-	// if ( board[ get_my_x() ][ get_my_y() ] > 0 )
-	// {
-	// 	return TAKE;
-	// }
-
-	// var rand = Math.random() * 4;
-
-	// if ( rand < 1 ) return NORTH;
-	// if ( rand < 2 ) return SOUTH;
-	// if ( rand < 3 ) return EAST;
-	// if ( rand < 4 ) return WEST;
-
-	// return PASS;
 }
 
 // Optionally include this function if you'd like to always reset to a 
@@ -33,6 +18,13 @@ function make_move()
 //    return 123;
 //}
 
+var Game = function () {
+
+}
+Game.prototype = {
+	number_of_players: 2
+}
+
 
 // SuperBot is not yet so super.
 var SuperBot = function ()
@@ -42,6 +34,9 @@ var SuperBot = function ()
 
 }
 var shortest_winning_distance;
+var total_fruits;
+var total_inserts = 0;
+var debug_count = 0;
 SuperBot.prototype = {
 
 	strategies:
@@ -85,11 +80,14 @@ SuperBot.prototype = {
 	buildPathTree: function ()
 	{
 		shortest_winning_distance = 99999;
+
 		this.fruits = this.getFruits();
-
+		total_fruits = this.fruits.length;
+		total_inserts = 0;
 		this.pathTree = new PathNode( null, null, this.fruits );
-
-		return this.pathTree.getShortestWinnablePath().reverse();
+		console.log( "Total inserts: " + total_inserts + " for " + total_fruits + " fruits." );
+		if ( shortest_winning_distance === 99999 ) throw new Error( "Shortest winning distance not set." );
+		return this.pathTree.getShortestWinnablePath();
 	},
 	insertPathNode: function () {
 
@@ -119,53 +117,52 @@ var Fruit = function ( x, y, type, id )
 	this.type = type;
 	this.id = id;
 }
-var PathNode = function ( parent, fruit, fruits, level, counts )
+var PathNode = function ( parent, fruit, fruits )
 {
+	// debug_count++;
 	this.parent = parent || null;
 	this.children = [];
 
-	if ( level === undefined || level === null ) level = 1;
+	this.fruit = fruit;
 
-	if ( counts === undefined || counts === null )
+	if ( this.fruit !== null )
+	{
+		if ( this.parent.fruit !== null ) this.distance = this.parent.distance + Math.abs( this.fruit.x - this.parent.fruit.x ) + Math.abs( this.fruit.y - this.parent.fruit.y ) + 1;
+		if ( this.distance > shortest_winning_distance ) return;
+	}
+	// if ( level === undefined || level === null ) level = 1;
+
+	if ( parent === undefined || parent === null )
 	{
 		this.counts = [];
 		for ( var i = 0; i < get_number_of_item_types(); i++ )
 		{
-			this.counts.push( get_total_item_count( i + 1 ) );
+			// this.counts.push( get_total_item_count( i + 1 ) );
+			this.counts.push( 0 );
 		};
 	}
 	else
 	{
-		this.counts = counts.slice( 0 );
+		this.counts = this.parent.counts.slice( 0 );
 	}
 
-	this.fruit = fruit;
 
 	// The only time it would be null is when it is the root.
 	if ( this.fruit !== null )
 	{
-		if ( this.parent.fruit !== null ) this.distance = this.parent.distance + Math.abs( this.fruit.x - this.parent.fruit.x ) + Math.abs( this.fruit.y - this.parent.fruit.y );
-		if ( this.distance > shortest_winning_distance ) return;
+		// if ( this.parent.fruit !== null ) this.distance = this.parent.distance + Math.abs( this.fruit.x - this.parent.fruit.x ) + Math.abs( this.fruit.y - this.parent.fruit.y ) + 1;
+		// if ( this.distance > shortest_winning_distance ) return;
 
-		this.counts[ fruit.type - 1 ]--;
+		this.counts[ this.fruit.type - 1 ]++;
+
+		if ( this.exceedsLimit() === true ) return;
 
 		// If we reach part of the winning condition, check the others.
-		if ( this.counts[ fruit.type - 1 ] < ( get_total_item_count( fruit.type ) / 2 ) && this.isWinningPath() )
+		if ( this.counts[ this.fruit.type - 1 ] + get_my_item_count( this.fruit.type ) + get_opponent_item_count( this.fruit.type ) == get_total_item_count( this.fruit.type ) && this.isWinningPath() )
 		{
 			shortest_winning_distance = this.distance;
-			// this.win = true;
-			// var parent = this.parent;
-			// while ( parent !== null )
-			// {
-			//    parent.win = true;
-			//    parent = parent.parent;
-			// }
 			return;
 		}
-		// else
-		// {
-		//    // this.win = false;
-		// }
 	}
 	else
 	{
@@ -174,16 +171,73 @@ var PathNode = function ( parent, fruit, fruits, level, counts )
 		this.distance = 0;
 	}
 
-	this.insert( fruits, level + 1 );
+	this.insert( fruits );
 }
+
 PathNode.prototype = {
+	exceedsLimit: function ()
+	{
+		var total = 0;
+		for ( var i = 0; i < get_number_of_item_types(); i++ )
+		{
+			// this.counts.push( get_total_item_count( i + 1 ) );
+			total += this.counts[ i ];
+		};
+
+		return total > Math.floor( total_fruits / 2 ) + 1;
+	},
+	breadth_search: function ( search_callback, queue_condition )
+	{
+		var queue = new Queue();
+
+		queue.enqueue( this );
+
+		while ( queue.isEmpty() === false )
+		{
+			var current_node = queue.dequeue();
+
+			if ( search_callback( current_node ) === true )
+			{
+				return current_node;
+			}
+			else
+			{
+				for ( var i = 0; i < current_node.children.length; i++ )
+				{
+					if ( queue_condition( current_node ) === true )
+					{
+						queue.enqueue( current_node.children[ i ] );
+					}
+				};
+			}
+		}
+	},
+
+	/**
+	 * Gets all of the nodes in the path to the node.
+	 * @return {[Array]}
+	 */
+	get_path: function ()
+	{
+		var path = [ this ];
+
+		var parent = this.parent;
+
+		while ( parent !== null )
+		{
+			path.push( parent );
+			parent = parent.parent;
+		}
+
+		return path.reverse();
+	},
 	isWinningPath: function ()
 	{
 		var winningFruits = 0;
 
 		for ( var i = 1; i < get_number_of_item_types() + 1; i++ )
 		{
-			if ( this.counts[ i - 1 ] < ( get_total_item_count( i ) / 2 ) ) winningFruits++;
+			if ( this.counts[ i - 1 ] + get_my_item_count( i ) + get_opponent_item_count( i ) == get_total_item_count( i ) ) winningFruits++;
 		};
 
 		// Is this path a winning one????
@@ -191,19 +245,34 @@ PathNode.prototype = {
 	},
 	insert: function ( fruits, level )
 	{
+		total_inserts++;
 		if ( fruits === undefined || fruits === null || fruits.length === 0 ) return;
 
 		for ( var i = 0; i < fruits.length; i++ )
 		{
 			var remaining = fruits.slice( 0 );
 			remaining.splice( i, 1 );
-			//console.log( ( "" + stringFill( "\t", level ) ) + fruits[ i ].id.toString( ) );
-			this.children.push( new PathNode( this, fruits[ i ], remaining, level, this.counts ) );
+			// for (var i = 0; i < remaining.length; i++) {
+			//    if( this.distance + remaining[i]
+			// };
+			this.children.push( new PathNode( this, fruits[ i ], remaining ) );
 		};
 	},
 	getShortestWinnablePath: function ()
 	{
 
+		return this.breadth_search( function ( node )
+		{
+			return ( node.distance === shortest_winning_distance && node.children.length === 0 );
+		}, function ( node )
+		{
+			return node.distance <= shortest_winning_distance;
+		} ).get_path();
+
+		// get_path( breadth_search( bot.pathTree,  ) );
+	},
+	getShortestWinnablePath2: function ()
+	{
 		if ( this.distance = shortest_winning_distance && this.children.length === 0 ) return [ this ];
 
 		// var paths = [];
@@ -220,7 +289,7 @@ PathNode.prototype = {
 
 		return null;
 
-	},
+	}
 }
 
 function stringFill( x, n )
